@@ -1,0 +1,56 @@
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as alb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+
+
+/**
+ * Route53ConstructProps 属性
+ */
+type Route53ConstructProps = {
+  /**
+   * 域名
+   */
+  domainName: string;
+  /**
+  /**
+   * ALB的DNS名称
+   */
+  albDnsName: string;
+};
+
+/**
+ * 创建Route53记录
+ */
+export class Route53Construct extends Construct {
+  public readonly instanceProps: Route53ConstructProps;
+  public readonly hostedZone: route53.IHostedZone;
+  public readonly recordSet: route53.CfnRecordSet;
+
+  constructor(scope: Construct, id: string, props: Route53ConstructProps) {
+    super(scope, id);
+    this.instanceProps = props;
+
+    // 查找托管区域
+    this.hostedZone = route53.HostedZone.fromLookup(this, 'HostedZone', {
+      domainName: props.domainName,
+    });
+
+
+
+    // 创建Route53记录
+    this.recordSet = new route53.CfnRecordSet(this, 'RecordSet', {
+      hostedZoneId: this.hostedZone.hostedZoneId,
+      name: props.domainName,
+      type: route53.RecordType.A, // 修改为A记录
+      aliasTarget: {
+        dnsName: props.albDnsName,
+        hostedZoneId: 'Z2VKXNR0QTI2OA',
+        evaluateTargetHealth: false,
+      },
+    });
+
+    // 为Route53记录添加名称标签
+    cdk.Tags.of(this.recordSet).add('Name', `${props.domainName}-record`);
+  }
+}

@@ -1,0 +1,70 @@
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+
+type NlbConstructProps = {
+    vpc: ec2.Vpc;
+    publicSubnets: ec2.ISubnet[];
+    nlbName?: string;
+    cdkAutoRemove?: boolean;
+}
+
+type AddNlbTargetProps = {
+    port: number;
+    healthCheckPath?: string,
+    targets: elb.INetworkLoadBalancerTarget[];
+    targetGroupName?: string;
+    accessPermissionHeader?: {
+        key: string,
+        val: string
+    }
+}
+
+export class NlbConstruct extends Construct {
+    public readonly instanceProps: NlbConstructProps;
+    public readonly nlb: elb.NetworkLoadBalancer;
+    public readonly nlbListener:elb.NetworkListener;
+    private addNlbTargetCount = 0;
+
+    constructor(scope: Construct, id: string, props: NlbConstructProps) {
+        super(scope, id);
+        this.instanceProps = props;
+
+        this.nlb = new elb.NetworkLoadBalancer(this, "Nlb", {
+            vpc: props.vpc,
+            internetFacing: true,
+            vpcSubnets: { subnets: props.publicSubnets },
+            loadBalancerName: props.nlbName,
+            deletionProtection: !props.cdkAutoRemove
+        });
+        if (props.nlbName) {
+            cdk.Tags.of(this.nlb).add('Name', props.nlbName);
+        }
+    }
+
+    public addNlbTarget(props: AddNlbTargetProps) {
+        this.addNlbTargetCount++;
+
+        const targetGroup2 = new elb.NetworkTargetGroup(this, "TargetGroup" + this.addNlbTargetCount, {
+            protocol: elb.Protocol.TCP,
+            port: props.port,
+            targets: props.targets,
+            targetGroupName: props.targetGroupName,
+            deregistrationDelay: cdk.Duration.seconds(30),
+            vpc: this.instanceProps.vpc
+        });
+        if (props.targetGroupName) {
+            cdk.Tags.of(targetGroup2).add('Name', props.targetGroupName);
+        }
+
+        // 添加监听器
+        const listener = this.nlb.addListener("NlbListener" + this.addNlbTargetCount, {
+            protocol: elb.Protocol.TCP,
+            port: 443,
+            defaultAction: elb.NetworkListenerAction.forward([targetGroup2]),
+        });
+        
+        this.nlbListeners.push(listener); // 将监听器添加到数组中
+    }
+}

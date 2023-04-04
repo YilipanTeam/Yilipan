@@ -1,0 +1,31 @@
+{
+    "Comment": "create CNAME record",
+    "Changes": [
+        {
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "front1.ci-si1.com.",
+                "Type": "CNAME",
+                "TTL": 60,
+                "ResourceRecords": [
+                    {
+                        "Value": "dq1twpx5xw1lq.cloudfront.net"
+                    }
+                ]
+            }
+        },
+        {
+            "Action": "UPSERT",
+            "ResourceRecordSet": {
+                "Name": "back1.ci-si1.com.",
+                "Type": "CNAME",
+                "TTL": 60,
+                "ResourceRecords": [
+                    {
+                        "Value": "wcc1-alb-ps-ctc1-lems-01-121771486.us-west-2.elb.amazonaws.com"
+                    }
+                ]
+            }
+        }
+    ]
+}

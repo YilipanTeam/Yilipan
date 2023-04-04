@@ -1,0 +1,4 @@
+node_modules/
+!lib/construct/synthetics/canary-app/nodejs/node_modules/
+cdk.out/
+cdk.context.json

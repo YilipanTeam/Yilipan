@@ -1,0 +1,107 @@
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+
+/**
+ * NlbConstruct 属性
+ */
+type NlbConstructProps = {
+    /**
+     * VPC
+     */
+    vpc: ec2.Vpc;
+    /**
+     * 子网
+     */
+    publicSubnets: ec2.ISubnet[];
+    /**
+     * NLB 名
+     */
+    nlbName?: string;
+    /**
+     * NLB SecurityGroup 名
+     */
+    nlbSgName?: string;
+    /**
+     * 是否在 cdk destroy 时自动删除（用于开发）。默认值：false
+     */
+    cdkAutoRemove?: boolean;
+}
+
+type AddNlbTargetProps = {
+    /**
+     * 目标端口
+     */
+    port: number;
+    /**
+     * NLB 目标
+     */
+    healthCheckPath?: string,
+    /**
+     * ALBターゲットリスト
+     */
+    targets: elb.INetworkLoadBalancerTarget[];
+    /**
+     * 目标组名
+     */
+    targetGroupName?: string;
+    accessPermissionHeader?: {
+        key: string,
+        val: string
+    }
+}
+
+/**
+ * 创建公共 NLB
+ */
+export class NlbConstruct extends Construct {
+    public readonly instanceProps: NlbConstructProps;
+    public readonly nlb: elb.NetworkLoadBalancer;
+    public readonly nlbListener: elb.ApplicationListener;
+
+    constructor(scope: Construct, id: string, props: NlbConstructProps) {
+        super(scope, id);
+        this.instanceProps = props;
+
+
+        // NLB
+        this.nlb = new elb.NetworkLoadBalancer(this, "Nlb", {
+            vpc: props.vpc,
+            internetFacing: true,
+            vpcSubnets: { subnets: props.publicSubnets },
+            loadBalancerName: props.nlbName,
+            deletionProtection: !props.cdkAutoRemove
+        });
+        if (props.nlbName) {
+            cdk.Tags.of(this.nlb).add('Name', props.nlbName);
+        }
+    
+    }
+
+    /**
+     * 将目标添加到 NLB
+     * @param props 
+     */
+    public addNlbTarget(props: AddNlbTargetProps) {
+        // TargetGroup
+        const targetGroup = new elb.NetworkTargetGroup(this, "TargetGroup", {
+            protocol: elb.Protocol.TCP,
+            port: props.port,
+            targets: props.targets,
+            targetGroupName: props.targetGroupName,
+            deregistrationDelay: cdk.Duration.seconds(30),
+            vpc: this.instanceProps.vpc
+        });
+        if (props.targetGroupName) {
+            cdk.Tags.of(targetGroup).add('Name', props.targetGroupName);
+        }
+
+        // 添加监听器
+        this.nlb.addListener("NlbListener", {
+            protocol: elb.Protocol.TCP,
+            port: props.port,
+            defaultTargetGroups: [targetGroup],
+        });
+    }
+}
