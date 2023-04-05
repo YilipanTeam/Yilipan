@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as s3  from 'aws-cdk-lib/aws-s3';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
 /** 
  * サーバアクセスログ設定時にターゲットバケットにACLを書き込む為、
@@ -24,9 +24,9 @@ export class s3Bucket extends s3.Bucket {
 
 
 /**
- * データストレージ用S3バケットコンストラクトプロパティ
+ * WAFログ用S3バケットコンストラクトプロパティ
  */
-type S3CommonBucketConstructProps = {
+type S3WaflogBucketConstructProps = {
     /**
      * バケット名
      */
@@ -54,11 +54,11 @@ type S3CommonBucketConstructProps = {
 }
 
 /**
- * データストレージ用S3バケットコンストラクト
+ * WAFログ用S3バケットコンストラクト
  */
-export class S3CommonBucketConstruct extends Construct {
+export class S3WaflogBucketConstruct extends Construct {
     public readonly s3Bucket: s3.Bucket;
-    constructor(scope: Construct, id: string, props: S3CommonBucketConstructProps) {
+    constructor(scope: Construct, id: string, props: S3WaflogBucketConstructProps) {
         super(scope, id);
         const lifecycleRules: s3.LifecycleRule[] = [];
         if (props.deleteObjectsLifeCyclePolicy) {

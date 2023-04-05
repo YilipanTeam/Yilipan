@@ -1,9 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as s3  from 'aws-cdk-lib/aws-s3';
-import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as acm  from 'aws-cdk-lib/aws-certificatemanager';
+import * as ec2  from 'aws-cdk-lib/aws-ec2';
+import * as s3   from 'aws-cdk-lib/aws-s3';
+import * as elb  from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as acm  from 'aws-cdk-lib/aws-certificatemanager'
 
 /**
  * AlbConstruct プロパティ
@@ -29,8 +29,12 @@ type AlbConstructProps = {
      * ALBにホストするACMのArn
      */
     acmArn: string;
-    /** cdk Destroy した時に自動で削除するか(開発用) 。デフォルト:false */
+    /**
+     * ターゲットグループ名
+     * @remark ターゲットグループ名を固定すると更新に失敗することがあるため、非推奨
+     */
     targetGroupName?: string,
+    /** cdk Destroy した時に自動で削除するか(開発用) 。デフォルト:false */
     cdkAutoRemove?: boolean;
 }
 export type AddAccessLogProps = {
@@ -117,17 +121,14 @@ export class AlbConstruct extends Construct {
             defaultAction: elb.ListenerAction.fixedResponse(403),
         });
         
-          
-          this.targetGroup = new elb.ApplicationTargetGroup(this, 'TargetGroup', {
-          vpc: props.vpc,
-          targetGroupName: props.targetGroupName,
-          targetType: elb.TargetType.IP, // 或使用 elbv2.TargetType.INSTANCE，根据需要选择
-          protocol: elb.ApplicationProtocol.HTTP,
-         port: 80, // 根据需要设置端口
-         });
-        
+        this.targetGroup = new elb.ApplicationTargetGroup(this, 'TargetGroup', {
+            vpc: props.vpc,
+            targetGroupName: props.targetGroupName,
+            targetType: elb.TargetType.IP, // 或使用 elbv2.TargetType.INSTANCE，根据需要选择
+            protocol: elb.ApplicationProtocol.HTTP,
+            port: 443, // 根据需要设置端口
+        });    
     }
-    
 
     /**
      * リスナーにアクセスをターゲットグループへ送信するリスナールールを追加

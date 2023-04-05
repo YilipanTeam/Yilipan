@@ -2,11 +2,9 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ensureStr } from '../utils/helpers';
 import { WccNetworkStack } from '../lib/stack/wcc-network-stack';
+import { WccOpsStack } from '../lib/stack/wcc-ops-stack';
 import { WccAppConnectionStack } from '../lib/stack/wcc-app-connection-stack';
-import { WccServerstack } from '../lib/stack/wcc-server-stack';
 import { WccStorageStack } from '../lib/stack/wcc-storage-stack';
-
-
 
 const app = new cdk.App();
 
@@ -56,8 +54,19 @@ const networkStack = new WccNetworkStack(app, `${envKey}-${pjPrefix}-network`, {
 cdk.Tags.of(networkStack).add('CTC_Bill02_System', `ps-${envKey}`);
 
 
+// opsを作成
+const opsStack = new WccOpsStack(app, `${envKey}-${pjPrefix}-ops`, {
+  env: procEnvDefault,
+  namingStackProps: { ...namingStackProps, increment: 1 },
+  vpc: networkStack.vpc.vpc,
+  privateSubnets: networkStack.vpc.privateSubnets || [],
+});
+cdk.Tags.of(opsStack).add('CTC_Bill02_System', `ps-${envKey}`);
 
+
+// 在创建 appConnectionStack 之前，实例化所需的 alb、nlb 和 route53
 // アプリケーション接続リソース（フロントエンド及びロードバランサー） を作成
+
 const appConnectionStack = new WccAppConnectionStack(app, `${envKey}-${pjPrefix}-appConnection`, {
   env: procEnvDefault,
   namingStackProps: { ...namingStackProps, increment: 1 },
@@ -76,19 +85,12 @@ const appConnectionStack = new WccAppConnectionStack(app, `${envKey}-${pjPrefix}
   cdk.Tags.of(appConnectionStack).add('CTC_Bill02_System', `ps-${envKey}`);
 
 
-//運用リソースを作成
-const serverStack = new WccServerstack(app, `${envKey}-${pjPrefix}-server`, {
-  env: procEnvDefault,
-  namingStackProps: { ...namingStackProps, increment: 1 },
-  vpc: networkStack.vpc.vpc,
-  privateSubnets: networkStack.vpc.privateSubnets || [],
-});
-cdk.Tags.of(serverStack).add('CTC_Bill02_System', `ps-${envKey}`);
-
-
-// storageを作成
+// opsを作成
 const storageStack = new WccStorageStack(app, `${envKey}-${pjPrefix}-storage`, {
   env: procEnvDefault,
   namingStackProps: { ...namingStackProps, increment: 1 },
+  s3flowLogBucketArn: envVals['network']['s3flowLogBucketArn'] || undefined,
+  dataSyncRoleArnList,
+  dataSyncCorssAccountId,
 });
 cdk.Tags.of(storageStack).add('CTC_Bill02_System', `ps-${envKey}`);

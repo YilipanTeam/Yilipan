@@ -24,9 +24,9 @@ export class s3Bucket extends s3.Bucket {
 
 
 /**
- * 各種ファイル格納用S3バケットコンストラクトプロパティ
+ * データストレージ用S3バケットコンストラクトプロパティ
  */
-type S3FileBucketConstructProps = {
+type S3CommonBucketConstructProps = {
     /**
      * バケット名
      */
@@ -54,11 +54,11 @@ type S3FileBucketConstructProps = {
 }
 
 /**
- * 各種ファイル格納用S3バケットコンストラクト
+ * データストレージ用S3バケットコンストラクト
  */
-export class S3FileBucketConstruct extends Construct {
+export class S3CommonBucketConstruct extends Construct {
     public readonly s3Bucket: s3.Bucket;
-    constructor(scope: Construct, id: string, props: S3FileBucketConstructProps) {
+    constructor(scope: Construct, id: string, props: S3CommonBucketConstructProps) {
         super(scope, id);
         const lifecycleRules: s3.LifecycleRule[] = [];
         if (props.deleteObjectsLifeCyclePolicy) {

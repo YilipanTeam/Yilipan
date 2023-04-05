@@ -4,9 +4,9 @@ import { NamingStackProps } from '../../utils/commonTypes';
 import { ResourceNameBuilder } from '../../utils/helpers';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { EC2Construct } from '../construct/ec2/ec2-construct';
+import { EC2TerminationProtectionConstruct } from '../construct/ec2/ec2-construct';
 
-type WccServerStackProps = {
+type WccOpsStackProps = {
     namingStackProps: NamingStackProps;
     vpc: ec2.Vpc;
     privateSubnets: ec2.ISubnet[];
@@ -17,9 +17,9 @@ type WccServerStackProps = {
     instanceType?: string;
 } & cdk.StackProps
 
-export class WccServerstack extends cdk.Stack {
+export class WccOpsStack extends cdk.Stack {
 
-    constructor(scope: Construct, id: string, props: WccServerStackProps) {
+    constructor(scope: Construct, id: string, props: WccOpsStackProps) {
         super(scope, id, props);
 
         // Ec2 Security Group
@@ -34,7 +34,19 @@ export class WccServerstack extends cdk.Stack {
             allowAllOutbound: true
         });
         cdk.Tags.of(sg).add('Name', sgName);
-
+        // Ec2 Security Group#2
+        const sg2Name = ResourceNameBuilder.makeResourceNameStr({
+            serviceName: 'sg',
+            use: 'other',
+            ...props.namingStackProps
+        });
+        const sg2 = new ec2.SecurityGroup(this, 'sg-ec2-other', {
+            vpc: props.vpc,
+            securityGroupName: sgName,
+            allowAllOutbound: true
+        });
+        cdk.Tags.of(sg).add('Name', sgName);
+        
         // Ec2 IAM Role
         const roleName = ResourceNameBuilder.makeResourceNameStr({
             serviceName: 'role',
@@ -80,8 +92,8 @@ export class WccServerstack extends cdk.Stack {
             'timedatectl set-timezone Asia/Tokyo',
             'yum update -y'
         );
-        // EC2終了保護#2
-        new EC2Construct(this, 'EC2TerminationProtection1', {
+        // EC2終了保護
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
             ec2Instance: instance1,
             namingStackProps: props.namingStackProps
         });
@@ -91,10 +103,10 @@ export class WccServerstack extends cdk.Stack {
         // EC2 Instance#2
         const instanceName2 = ResourceNameBuilder.makeResourceNameStr({
             serviceName: 'ec2',
-            use: 'other',
+            use: 'DeepSecurity',
             ...props.namingStackProps
         });
-        const instance2 = new ec2.Instance(this, 'ec2-other',
+        const instance = new ec2.Instance(this, 'ec2-DeepSecurity',
             {
                 vpc: props.vpc,
                 vpcSubnets: { subnets: props.privateSubnets },
@@ -113,21 +125,14 @@ export class WccServerstack extends cdk.Stack {
                 }]
             }
         );
-        instance2.userData.addCommands(
-            `hostnamectl set-hostname ${instanceName2}`,
-            'echo "preserve_hostname: true" >> /etc/cloud/cloud.cfg',
-            'timedatectl set-timezone Asia/Tokyo',
-            'yum update -y'
-        );
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection2', {
-            ec2Instance: instance2,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
-
-        cdk.Tags.of(instance2).add('Name', instanceName2);
-    
-            // EC2 Instance#3
+        
+        
+        // EC2 Instance#3
         const instanceName3 = ResourceNameBuilder.makeResourceNameStr({
             serviceName: 'ec2',
             use: 'Sagyou',
@@ -154,8 +159,8 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection3', {
-            ec2Instance: instance3,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
 
@@ -188,8 +193,8 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection4', {
-            ec2Instance: instance4,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
 
@@ -198,10 +203,10 @@ export class WccServerstack extends cdk.Stack {
         // EC2 Instance#5
         const instanceName5 = ResourceNameBuilder.makeResourceNameStr({
             serviceName: 'ec2',
-            use: 'mailtest',
+            use: 'mail',
             ...props.namingStackProps
         });
-        const instance5 = new ec2.Instance(this, 'ec2-mailtest',
+        const instance5 = new ec2.Instance(this, 'ec2-mail',
             {
                 vpc: props.vpc,
                 vpcSubnets: { subnets: props.privateSubnets },
@@ -222,8 +227,8 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection5', {
-            ec2Instance: instance5,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
 
@@ -256,8 +261,8 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection6', {
-            ec2Instance: instance2,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
 
@@ -290,11 +295,11 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection7', {
-            ec2Instance: instance2,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
-
+        
         cdk.Tags.of(instance7).add('Name', instanceName7); 
         
         // EC2 Instance#8
@@ -324,12 +329,10 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection8', {
-            ec2Instance: instance2,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
-        
-        cdk.Tags.of(instance8).add('Name', instanceName8); 
         
          // EC2 Instance#9
         const instanceName9 = ResourceNameBuilder.makeResourceNameStr({
@@ -358,12 +361,12 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection9', {
-            ec2Instance: instance2,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
-        }); 
+        });
         
-        cdk.Tags.of(instance9).add('Name', instanceName9); 
+        cdk.Tags.of(instance9).add('Name', instanceName9);  
         
          // EC2 Instance#10
         const instanceName10 = ResourceNameBuilder.makeResourceNameStr({
@@ -392,11 +395,11 @@ export class WccServerstack extends cdk.Stack {
         );
 
         // EC2終了保護
-        new EC2Construct(this, 'EC2TerminationProtection10', {
-            ec2Instance: instance2,
+        new EC2TerminationProtectionConstruct(this, 'EC2TerminationProtection', {
+            ec2Instance: instance,
             namingStackProps: props.namingStackProps
         });
-
+        
         cdk.Tags.of(instance10).add('Name', instanceName10);         
     }
 }

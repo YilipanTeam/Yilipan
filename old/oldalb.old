@@ -1,0 +1,187 @@
+import * as cdk from 'aws-cdk-lib';
+import { Construct } from 'constructs';
+import { NamingStackProps } from '../../utils/commonTypes'
+import { ResourceNameBuilder } from '../../utils/helpers'
+import { aws_sns as sns } from 'aws-cdk-lib';
+import { VpcConstruct } from '../construct/vpc/vpc-construct';
+import { aws_s3 as s3 } from 'aws-cdk-lib';
+import { S3CommonBucketConstruct } from '../construct/s3-common-bucket/s3-common-bucket-construct';
+import { AlbConstruct } from '../construct/alb/alb-construct';
+import { CloudfrontAppConstruct } from '../construct/cloudfront-app/cloudfront-app-construct';
+import { SyntheticsConstruct } from '../construct/synthetics/synthetics-construct';
+import { S3S3logBucketConstruct } from '../construct/s3-s3log-bucket/s3-s3log-bucket-construct';
+import { v5 as uuidv5 } from 'uuid';
+
+type WccAppConnectionStackProps = {
+    namingStackProps: NamingStackProps;
+    vpc: VpcConstruct;
+    /**
+     * ALB ACM ARN
+     */
+    albAcmArn: string;
+    /**
+     * ALB アクセスログバケット ARN
+     */
+    albAccessLogbucketArn?: string;
+    /**
+     * CloudFrontACM ARN
+     */
+    cloudFrontAcmArn: string;
+    /**
+     * CloudFront アクセスログバケット ARN
+     */
+    cloudFrontAccessLogBucketArn?: string;
+    /**
+     * CloudFront WEB ACL ID
+     */
+    cloudFrontWebAclId?: string;
+    /**
+     * フロントドメイン名
+     */
+    frontDomainName: string;
+    /**
+     * バックドメイン名
+     */
+    backDomainName: string;
+    /**
+     * 監視用SNSトピック
+     */
+    snsAlarmTopicArn?: string;
+    /**
+     * アクセスログ格納用S3バケット
+     */
+    s3AccessLogBucket?: S3S3logBucketConstruct;
+} & cdk.StackProps
+
+
+export class WccAppConnectionStack extends cdk.Stack {
+    /** ALB */
+    public readonly alb: AlbConstruct;
+    public readonly frontApp: CloudfrontAppConstruct;
+    public readonly cloudFrontAccessPermissionHeader: { key: string, val: string }
+
+    constructor(scope: Construct, id: string, props: WccAppConnectionStackProps) {
+        super(scope, id, props);
+
+
+
+        /** ALB */
+        this.alb = new AlbConstruct(this, 'LemsALB', {
+            acmArn: props.albAcmArn,
+            albSgName: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 'sg',
+                use: 'alb',
+                ...props.namingStackProps
+            }),
+            albName: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 'alb',
+                use: `lems`,
+                ...props.namingStackProps
+            }),
+            vpc: props.vpc.vpc,
+            publicSubnets: props.vpc.publicSubnets,
+            cdkAutoRemove: /^ctc[0-9]$/.test(props.namingStackProps.envKey)
+        });
+        let albAccessLogBucket: s3.IBucket | undefined;
+        if (props.albAccessLogbucketArn) {
+            albAccessLogBucket = s3.Bucket.fromBucketArn(this, 'AlbAccessLogBucket', props.albAccessLogbucketArn)
+            this.alb.addAccessLog({ accessLogBucket: albAccessLogBucket })
+        }
+
+        // アクセスログバケット
+        let accessLogBucket: s3.IBucket | undefined;
+        if (props.cloudFrontAccessLogBucketArn) {
+            accessLogBucket = s3.Bucket.fromBucketArn(this, 'AccessLogBucket', props.cloudFrontAccessLogBucketArn)
+        }
+        // フロントバケット
+        const frontBucket = new S3CommonBucketConstruct(this, 'webBucket', {
+            bucketName: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 's3',
+                use: `web`,
+                ...props.namingStackProps
+            }),
+            serverAccessLogsBucket: props.s3AccessLogBucket?.s3Bucket,
+            cdkAutoRemove: /^ctc[0-9]$/.test(props.namingStackProps.envKey),
+        }).s3Bucket;
+
+        // フロントアプリ
+        this.frontApp = new CloudfrontAppConstruct(this, 'FrontApp', {
+            acmArn: props.cloudFrontAcmArn,
+            domainName: props.frontDomainName,
+            accessLogBucket: accessLogBucket,
+            backendOriginConfig: {
+                domainName: props.backDomainName,
+                pathPattern: '/api/*',
+                forwardedHeaders: ['Authorization'],
+                originHeader: { [this.cloudFrontAccessPermissionHeader.key]: this.cloudFrontAccessPermissionHeader.val }
+
+            },
+            webAclId: props.cloudFrontWebAclId,
+            frontBucket: frontBucket,
+            // MEMO: 以下は「/」以外でリロード時に403エラーにならないための設定だが、以下の方法は API で 403 エラーを返した際 200 OK となってしまうため、避けたい。
+            // https://qiita.com/seapolis/items/0afd49d24b12749d93ab を参考にすれば API に影響を与えずリダイレクト可能そう。
+            // ただし、現在対応すると新たなリソースを使用することとなり、過度な対応となり得るため、今後 403 エラーを返す必要が出てきた際に対応する。
+            // また、waf のIP制限エラー時も 403 エラーとなり、「/」を返し真っ白な画面が返ってくるが、システム利用には影響ないため、一旦現状のままとする。
+            errorConfigurations: [
+                {
+                    errorCode: 403,
+                    errorCachingMinTtl: 5,
+                    responseCode: 200,
+                    responsePagePath: "/",
+                },
+            ],
+            cloudFrontName: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 'cloudfront',
+                use: `api-webhosting`,
+                ...props.namingStackProps
+            }),
+            cdkAutoRemove: /^ctc[0-9]$/.test(props.namingStackProps.envKey)
+        });
+
+        // Synthetics (外形監視)
+        const topic = props.snsAlarmTopicArn ? sns.Topic.fromTopicArn(this, 'SnsTopic', props.snsAlarmTopicArn) : undefined;
+        const canaryBucket = new S3CommonBucketConstruct(this, 'canaryArtifact', {
+            bucketName: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 's3',
+                use: `canary`,
+                ...props.namingStackProps
+            }),
+            serverAccessLogsBucket: props.s3AccessLogBucket?.s3Bucket,
+            cdkAutoRemove: /^ctc[0-9]$/.test(props.namingStackProps.envKey),
+        });
+        new SyntheticsConstruct(this, 'SyntheticsFront', {
+            canaryName: `${props.namingStackProps.pjPrefix}-${props.namingStackProps.systemId}-${props.namingStackProps.envKey}-front`,
+            alarmTopic: topic,
+            appEndpoint: props.frontDomainName,
+            appPath: '/',
+            canaryS3Bucket: canaryBucket.s3Bucket,
+            canaryAlarmNamePrefixStr: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 'alarm',
+                use: `front-canary`,
+                ...props.namingStackProps
+            }),
+            vpcSubnets: {
+                vpc: props.vpc.vpc,
+                subnets: props.vpc.privateSubnets,
+            },
+            cdkAutoRemove: /^ctc[0-9]$/.test(props.namingStackProps.envKey),
+        });
+        new SyntheticsConstruct(this, 'SyntheticsApi', {
+            canaryName: `${props.namingStackProps.pjPrefix}-${props.namingStackProps.systemId}-${props.namingStackProps.envKey}-api`,
+            alarmTopic: topic,
+            appEndpoint: props.frontDomainName,
+            appPath: '/api/healthcheck',
+            canaryS3Bucket: canaryBucket.s3Bucket,
+            canaryAlarmNamePrefixStr: ResourceNameBuilder.makeResourceNameStr({
+                serviceName: 'alarm',
+                use: `api-canary`,
+                ...props.namingStackProps
+            }),
+            vpcSubnets: {
+                vpc: props.vpc.vpc,
+                subnets: props.vpc.privateSubnets,
+            },
+            cdkAutoRemove: /^ctc[0-9]$/.test(props.namingStackProps.envKey),
+        });
+    }
+}

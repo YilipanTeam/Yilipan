@@ -1,15 +1,22 @@
 import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as s3  from 'aws-cdk-lib/aws-s3';
+import { S3CommonBucketConstruct } from '../construct/s3/s3-common-bucket-construct';
+import { S3S3logBucketConstruct } from '../construct/s3/s3-s3log-bucket-construct';
+import { LogsS3BackupConstruct } from '../construct/s3-backup/s3-log-backup-construct';
+
 import { Construct } from 'constructs';
 import { NamingStackProps } from '../../utils/commonTypes';
 import { ResourceNameBuilder } from '../../utils/helpers';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import { EC2Construct } from '../construct/ec2/ec2-construct';
 
 type WccServerStackProps = {
     namingStackProps: NamingStackProps;
     vpc: ec2.Vpc;
     privateSubnets: ec2.ISubnet[];
+    publicteSubnets: ec2.ISubnet[];
     /**
      * EC2のインスタンスタイプ
      * @example t3.micro

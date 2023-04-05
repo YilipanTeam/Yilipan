@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as s3  from 'aws-cdk-lib/aws-s3';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 
 /** 
  * サーバアクセスログ設定時にターゲットバケットにACLを書き込む為、
@@ -24,9 +24,9 @@ export class s3Bucket extends s3.Bucket {
 
 
 /**
- * データストレージ用S3バケットコンストラクトプロパティ
+ * Cloudtrailログ用S3バケットコンストラクトプロパティ
  */
-type S3ApplogBucketConstructProps = {
+type S3CloudtraillogBucketConstructProps = {
     /**
      * バケット名
      */
@@ -54,11 +54,11 @@ type S3ApplogBucketConstructProps = {
 }
 
 /**
- * データストレージ用S3バケットコンストラクト
+ * Cloudtrailログ用S3バケットコンストラクト
  */
-export class S3ApplogBucketConstruct extends Construct {
+export class S3CloudtraillogBucketConstruct extends Construct {
     public readonly s3Bucket: s3.Bucket;
-    constructor(scope: Construct, id: string, props: S3ApplogBucketConstructProps) {
+    constructor(scope: Construct, id: string, props: S3CloudtraillogBucketConstructProps) {
         super(scope, id);
         const lifecycleRules: s3.LifecycleRule[] = [];
         if (props.deleteObjectsLifeCyclePolicy) {
@@ -80,7 +80,7 @@ export class S3ApplogBucketConstruct extends Construct {
             enforceSSL: true,
             eventBridgeEnabled: props.eventBridgeEnabled,
             serverAccessLogsBucket: props.serverAccessLogsBucket,
-            serverAccessLogsPrefix: props.serverAccessLogsBucket !== undefined ? `${props.bucketName}/` : undefined,
+            serverAccessLogsPrefix: props.serverAccessLogsBucket !== undefined ? `${props.bucketName}/` : undefined,        
             removalPolicy: props.cdkAutoRemove ? cdk.RemovalPolicy.DESTROY : cdk.RemovalPolicy.RETAIN,
             lifecycleRules: lifecycleRules
         });

@@ -4,7 +4,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elb from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 
 /**
- * NlbConstruct 属性
+ * AlbConstruct プロパティ
  */
 type NlbConstructProps = {
     /**
@@ -12,96 +12,87 @@ type NlbConstructProps = {
      */
     vpc: ec2.Vpc;
     /**
-     * 子网
-     */
+     * パブリックサブネット
+     */    
     publicSubnets: ec2.ISubnet[];
     /**
-     * NLB 名
+     * NLB名
      */
     nlbName?: string;
-    /**
-     * NLB SecurityGroup 名
-     */
-    nlbSgName?: string;
-    /**
-     * 是否在 cdk destroy 时自动删除（用于开发）。默认值：false
-     */
+    /** cdk Destroy した時に自動で削除するか(開発用) 。デフォルト:false */
     cdkAutoRemove?: boolean;
-}
+};
 
 type AddNlbTargetProps = {
     /**
-     * 目标端口
-     */
+     * ターゲットポート
+     */    
     port: number;
     /**
-     * NLB 目标
-     */
-    healthCheckPath?: string,
-    /**
-     * ALBターゲットリスト
+     * ヘルスチェックパス
      */
     targets: elb.INetworkLoadBalancerTarget[];
     /**
-     * 目标组名
-     */
+     * ターゲットグループ名
+     * @remark ターゲットグループ名を固定すると更新に失敗することがあるため、非推奨
+     */    
     targetGroupName?: string;
-    accessPermissionHeader?: {
-        key: string,
-        val: string
-    }
-}
+
+};
 
 /**
- * 创建公共 NLB
+ * パブリックNLBを作成
  */
 export class NlbConstruct extends Construct {
     public readonly instanceProps: NlbConstructProps;
     public readonly nlb: elb.NetworkLoadBalancer;
-    public readonly nlbListener: elb.ApplicationListener;
+    public readonly nlbListener: elb.NetworkListener;
+    private addTargetCount = 0;
 
     constructor(scope: Construct, id: string, props: NlbConstructProps) {
         super(scope, id);
         this.instanceProps = props;
 
-
         // NLB
-        this.nlb = new elb.NetworkLoadBalancer(this, "Nlb", {
+        this.nlb = new elb.NetworkLoadBalancer(this, 'Nlb', {
             vpc: props.vpc,
-            internetFacing: true,
             vpcSubnets: { subnets: props.publicSubnets },
+            internetFacing: true,
             loadBalancerName: props.nlbName,
-            deletionProtection: !props.cdkAutoRemove
+            crossZoneEnabled: true,
+            deletionProtection: !props.cdkAutoRemove,
         });
+
         if (props.nlbName) {
             cdk.Tags.of(this.nlb).add('Name', props.nlbName);
         }
-    
+        
+        
     }
-
     /**
-     * 将目标添加到 NLB
+     * リスナーにアクセスをターゲットグループへ送信するリスナールールを追加
+     * @param id 
      * @param props 
      */
     public addNlbTarget(props: AddNlbTargetProps) {
-        // TargetGroup
-        const targetGroup = new elb.NetworkTargetGroup(this, "TargetGroup", {
+        this.addTargetCount++;
+
+        // TargetGtoup
+        const targetGroup = new elb.NetworkTargetGroup(this, `TargetGroup${this.addTargetCount}`, {
             protocol: elb.Protocol.TCP,
             port: props.port,
             targets: props.targets,
             targetGroupName: props.targetGroupName,
             deregistrationDelay: cdk.Duration.seconds(30),
-            vpc: this.instanceProps.vpc
+            healthCheck: {
+                interval: cdk.Duration.seconds(30),
+                unhealthyThresholdCount: 5,
+            },        
+            vpc: this.instanceProps.vpc,
         });
+
         if (props.targetGroupName) {
             cdk.Tags.of(targetGroup).add('Name', props.targetGroupName);
         }
-
-        // 添加监听器
-        this.nlb.addListener("NlbListener", {
-            protocol: elb.Protocol.TCP,
-            port: props.port,
-            defaultTargetGroups: [targetGroup],
-        });
     }
 }
