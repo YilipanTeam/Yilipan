@@ -145,6 +145,7 @@ export class Ec2InstanceConstruct extends Construct {
                 }]
             }
         );
+        
         this.instance2.userData.addCommands(
             'Set-ExecutionPolicy Unrestricted -Force',
             'Import-Module AWS.Tools.Installer',
