@@ -80,7 +80,8 @@ const appConnectionStack = new WccAppConnectionStack(app, `${envKey}-${pjPrefix}
 const serverStack = new WccServerstack(app, `${envKey}-${pjPrefix}-server`, {
   env: procEnvDefault,
   namingStackProps: { ...namingStackProps, increment: 1 },
-  vpc: networkStack.vpc.vpc,
+  vpc: networkStack.vpc,
+  alb: appConnectionStack.alb,
   privateSubnets: networkStack.vpc.privateSubnets || [],
 });
 cdk.Tags.of(serverStack).add('CTC_Bill02_System', `ps-${envKey}`);

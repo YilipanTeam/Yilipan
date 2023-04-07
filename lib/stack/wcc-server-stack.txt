@@ -6,7 +6,6 @@ import * as s3  from 'aws-cdk-lib/aws-s3';
 import { S3CommonBucketConstruct } from '../construct/s3/s3-common-bucket-construct';
 import { S3S3logBucketConstruct } from '../construct/s3/s3-s3log-bucket-construct';
 import { LogsS3BackupConstruct } from '../construct/s3-backup/s3-log-backup-construct';
-
 import { Construct } from 'constructs';
 import { NamingStackProps } from '../../utils/commonTypes';
 import { ResourceNameBuilder } from '../../utils/helpers';

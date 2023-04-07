@@ -19,26 +19,12 @@ type NlbConstructProps = {
      * NLB名
      */
     nlbName?: string;
+    targetGroupName?: string,
     /** cdk Destroy した時に自動で削除するか(開発用) 。デフォルト:false */
     cdkAutoRemove?: boolean;
 };
 
-type AddNlbTargetProps = {
-    /**
-     * ターゲットポート
-     */    
-    port: number;
-    /**
-     * ヘルスチェックパス
-     */
-    targets: elb.INetworkLoadBalancerTarget[];
-    /**
-     * ターゲットグループ名
-     * @remark ターゲットグループ名を固定すると更新に失敗することがあるため、非推奨
-     */    
-    targetGroupName?: string;
 
-};
 
 /**
  * パブリックNLBを作成
@@ -47,7 +33,8 @@ export class NlbConstruct extends Construct {
     public readonly instanceProps: NlbConstructProps;
     public readonly nlb: elb.NetworkLoadBalancer;
     public readonly nlbListener: elb.NetworkListener;
-    private addTargetCount = 0;
+    public readonly targetGroup: elb.NetworkTargetGroup;
+    
 
     constructor(scope: Construct, id: string, props: NlbConstructProps) {
         super(scope, id);
@@ -67,32 +54,17 @@ export class NlbConstruct extends Construct {
             cdk.Tags.of(this.nlb).add('Name', props.nlbName);
         }
         
-        
-    }
-    /**
-     * リスナーにアクセスをターゲットグループへ送信するリスナールールを追加
-     * @param id 
-     * @param props 
-     */
-    public addNlbTarget(props: AddNlbTargetProps) {
-        this.addTargetCount++;
-
-        // TargetGtoup
-        const targetGroup = new elb.NetworkTargetGroup(this, `TargetGroup${this.addTargetCount}`, {
-            protocol: elb.Protocol.TCP,
-            port: props.port,
-            targets: props.targets,
+        this.targetGroup = new elb.NetworkTargetGroup(this, 'TargetGroup', {
+            vpc: props.vpc,
             targetGroupName: props.targetGroupName,
-            deregistrationDelay: cdk.Duration.seconds(30),
-            healthCheck: {
-                interval: cdk.Duration.seconds(30),
-                unhealthyThresholdCount: 5,
-            },        
-            vpc: this.instanceProps.vpc,
+            targetType: elb.TargetType.INSTANCE,
+            protocol: elb.Protocol.TCP,
+            port: 443, // 根据需要设置端口
         });
 
-        if (props.targetGroupName) {
-            cdk.Tags.of(targetGroup).add('Name', props.targetGroupName);
-        }
-    }
-}
+        // Listener
+        this.nlbListener = this.nlb.addListener('NlbListener', {
+            port: 80,
+            defaultAction: elb.NetworkListenerAction.forward([this.targetGroup]),
+        });
+    }}

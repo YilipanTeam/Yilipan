@@ -7,6 +7,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import { AlbConstruct } from '../construct/alb/alb-construct';
 import { S3S3logBucketConstruct } from '../construct/s3/s3-s3log-bucket-construct';
 import { NlbConstruct } from '../construct/nlb/nlb-construct';
+//import { NlbConstruct } from '../construct/nlb/nlb-construct';
 //import { Route53Construct } from '../construct/alb/route53-construct';
 
 type WccAppConnectionStackProps = {
@@ -38,8 +39,8 @@ export class WccAppConnectionStack extends cdk.Stack {
     public readonly alb: AlbConstruct;
     public readonly nlb: NlbConstruct; // 添加 NLB 属性
     //public readonly route53: Route53Construct;
-    public readonly cloudFrontAccessPermissionHeader: { key: string, val: string }
-
+    public readonly cloudFrontAccessPermissionHeader: { key: string, val: string };
+    
     constructor(scope: Construct, id: string, props: WccAppConnectionStackProps) {
         super(scope, id, props);
 

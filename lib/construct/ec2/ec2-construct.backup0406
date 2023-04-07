@@ -15,7 +15,8 @@ type Ec2InstanceConstructProps = {
     namingStackProps: NamingStackProps;
     vpc: ec2.IVpc;
     privateSubnets: ec2.ISubnet[];
-    pubilicSubnets: ec2.ISubnet[];
+    publicSubnets: ec2.ISubnet[];
+    ec2Instance: ec2.Instance;
     instanceType?: string;
     securityGroupName?: string;
     logGroupName?: string;
@@ -59,7 +60,7 @@ export class Ec2InstanceConstruct extends Construct {
             ...props.namingStackProps
         }); 
         
-        this.instance = new ec2.Instance(this, 'EC2-Instance1', {
+        this.instance = new ec2.Instance(this, 'EC2-Instance111', {
          vpc: props.vpc,
          vpcSubnets: { subnets: props.privateSubnets },
          instanceType: new ec2.InstanceType(this.InstaceType || 't3.medium'),
@@ -135,30 +136,8 @@ export class Ec2InstanceConstruct extends Construct {
      * @param thresholdRate 空きメモリ使用率のアラート閾値
      * @param alarmName アラーム名
      */
-    addMemoryArarm(id: string, alarmTopic: sns.ITopic, memorySize: number, thresholdRate = 0.2, alarmName?: string) {
-        const alarm = new cw.Alarm(this, id, {
-            metric: new cw.Metric({
-                namespace: 'CWAgent',
-                metricName: 'mem_used_percent',
-            dimensionsMap: {
-                 InstanceId: this.instance.instanceId,
-                },
-            period: cdk.Duration.minutes(5),
-            statistic: cw.Statistic.AVERAGE,
-        }),
-        evaluationPeriods: 5,
-        datapointsToAlarm: 1,
-        threshold: memorySize * thresholdRate,
-        comparisonOperator: cw.ComparisonOperator.LESS_THAN_OR_EQUAL_TO_THRESHOLD,
-        actionsEnabled: true,
-        treatMissingData: cw.TreatMissingData.BREACHING,
-        alarmName,
-    });
-    if (alarmName) {
-        cdk.Tags.of(alarm).add('Name', alarmName);
-    }
-    alarm.addAlarmAction(new cw_actions.SnsAction(alarmTopic));
-}}
+
+}
 
 
 
